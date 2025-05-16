@@ -21,7 +21,10 @@ Add a list of the projects you want easily available to a config file, then run 
 ~/projects/project-a
 ~/projects/project-b
 /Users/jdoe/projects/project-c
+~/projects/sub-projects/*
 ```
+
+If you end a path with `/*` `project-picker` will list all the directories in that folder.
 
 ### Example: jump between projects with cd
 

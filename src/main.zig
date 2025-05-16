@@ -73,14 +73,13 @@ const ProjectPicker = struct {
     ) std.mem.Allocator.Error!vxfw.Surface {
         const max = ctx.max.size();
 
-        var list_view: vxfw.SubSurface = .{
+        const list_view: vxfw.SubSurface = .{
             .origin = .{ .row = 2, .col = 0 },
             .surface = try self.list_view.draw(ctx.withConstraints(
                 ctx.min,
                 .{ .width = max.width, .height = max.height - 3 },
             )),
         };
-        list_view.surface.focusable = false;
 
         const text_field: vxfw.SubSurface = .{
             .origin = .{ .row = 0, .col = 2 },
@@ -105,7 +104,6 @@ const ProjectPicker = struct {
         return .{
             .size = max,
             .widget = self.widget(),
-            .focusable = true,
             .buffer = &.{},
             .children = children,
         };
@@ -296,9 +294,39 @@ pub fn main() !void {
 
         // 3. Parse the lines of the file and add them to the available items in the project picker.
 
+        var arena_state: std.heap.ArenaAllocator = .init(allocator);
+        defer arena_state.deinit();
+        const arena = arena_state.allocator();
+
         var it = std.mem.tokenizeScalar(u8, projects, '\n');
         while (it.next()) |token| {
-            try picker.list.append(.{ .text = token });
+            if (std.mem.endsWith(u8, token, "/*")) {
+                const dir_path = dir_path: {
+                    const dir_path = token[0 .. token.len - 2];
+
+                    if (!std.mem.startsWith(u8, dir_path, "~/")) {
+                        break :dir_path dir_path;
+                    }
+
+                    var env = try std.process.getEnvMap(arena);
+                    defer env.deinit();
+                    const home = env.get("HOME") orelse return error.NoHomeDirectoryFound;
+                    break :dir_path try std.fs.path.join(arena, &.{ home, dir_path[1..] });
+                };
+
+                const dir = try std.fs.cwd().openDir(dir_path, .{});
+                var dir_it = dir.iterate();
+
+                while (try dir_it.next()) |f| {
+                    if (f.kind == .directory) {
+                        try picker.list.append(
+                            .{ .text = try std.fs.path.join(arena, &.{ dir_path, f.name }) },
+                        );
+                    }
+                }
+            } else {
+                try picker.list.append(.{ .text = token });
+            }
         }
 
         // 4. Run the picker.
