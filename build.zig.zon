@@ -12,6 +12,10 @@
             .url = "git+https://github.com/ziglibs/known-folders.git#aa24df42183ad415d10bc0a33e6238c437fc0f59",
             .hash = "known_folders-0.0.0-Fy-PJtLDAADGDOwYwMkVydMSTp_aN-nfjCZw6qPQ2ECL",
         },
+        .zf = .{
+            .url = "git+https://github.com/natecraddock/zf#63b6df4c610b5198bf291264ae179320ec409a77",
+            .hash = "zf-0.10.3-OIRy8aiIAACLrBllz0zjxaH0aOe5oNm3KtEMyCntST-9",
+        },
     },
     .paths = .{
         "build.zig",

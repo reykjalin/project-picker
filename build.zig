@@ -8,11 +8,8 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-
-    const vaxis_dep = b.dependency("vaxis", .{
-        .target = target,
-        .optimize = optimize,
-    });
+    const vaxis_dep = b.dependency("vaxis", .{ .target = target, .optimize = optimize });
+    const zf_dep = b.dependency("zf", .{ .target = target, .optimize = optimize });
 
     const exe = b.addExecutable(.{
         .name = "project-picker",
@@ -23,6 +20,7 @@ pub fn build(b: *std.Build) void {
 
     exe.root_module.addImport("known-folders", known_folders_dep.module("known-folders"));
     exe.root_module.addImport("vaxis", vaxis_dep.module("vaxis"));
+    exe.root_module.addImport("zf", zf_dep.module("zf"));
 
     b.installArtifact(exe);
 

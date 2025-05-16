@@ -5,9 +5,15 @@ const std = @import("std");
 const kf = @import("known-folders");
 const vaxis = @import("vaxis");
 const vxfw = vaxis.vxfw;
+const zf = @import("zf");
 
 pub const known_folders_config: kf.KnownFolderConfig = .{
     .xdg_on_mac = true,
+};
+
+const Candidate = struct {
+    item: []const u8,
+    rank: f64,
 };
 
 const ProjectPicker = struct {
@@ -133,6 +139,23 @@ const ProjectPicker = struct {
         return self.filtered.items[idx].widget();
     }
 
+    fn sort(_: void, a: Candidate, b: Candidate) bool {
+        // first by rank
+        if (a.rank < b.rank) return true;
+        if (a.rank > b.rank) return false;
+
+        // then by length
+        if (a.item.len < b.item.len) return true;
+        if (a.item.len > b.item.len) return false;
+
+        // then alphabetically
+        for (a.item, 0..) |c, i| {
+            if (c < b.item[i]) return true;
+            if (c > b.item[i]) return false;
+        }
+        return false;
+    }
+
     pub fn on_change(maybe_ptr: ?*anyopaque, _: *vxfw.EventContext, str: []const u8) anyerror!void {
         const ptr = maybe_ptr orelse return;
         const self: *ProjectPicker = @ptrCast(@alignCast(ptr));
@@ -141,23 +164,45 @@ const ProjectPicker = struct {
         self.filtered.clearAndFree();
         _ = self.arena.reset(.free_all);
 
-        const allocator = self.arena.allocator();
+        const arena = self.arena.allocator();
 
         // If there is text in the search box we only render items that contain the search string.
         // Otherwise we render all the items.
         if (str.len > 0) {
-            for (self.list.items) |item| {
-                if (std.mem.containsAtLeast(u8, item.text, 1, str)) {
-                    // FIXME: add more spans that highlight the matching text.
-                    var spans = std.ArrayList(vxfw.RichText.TextSpan).init(allocator);
-                    const span: vxfw.RichText.TextSpan = .{ .text = item.text };
-                    try spans.append(span);
-                    try self.filtered.append(.{ .text = spans.items });
+            var case_sensitive = false;
+            for (str) |c| {
+                if (std.ascii.isUpper(c)) {
+                    case_sensitive = true;
+                    break;
                 }
+            }
+
+            var tokens: std.ArrayListUnmanaged([]const u8) = .empty;
+            var it = std.mem.tokenizeScalar(u8, str, ' ');
+            while (it.next()) |token| {
+                try tokens.append(arena, token);
+            }
+
+            var fuzzy_ranked: std.ArrayListUnmanaged(Candidate) = .empty;
+
+            for (self.list.items) |item| {
+                if (zf.rank(item.text, tokens.items, .{ .to_lower = !case_sensitive })) |r| {
+                    try fuzzy_ranked.append(arena, .{ .item = item.text, .rank = r });
+                }
+            }
+
+            std.sort.block(Candidate, fuzzy_ranked.items, {}, sort);
+
+            for (fuzzy_ranked.items) |item| {
+                // FIXME: add more spans that highlight the matching text.
+                var spans = std.ArrayList(vxfw.RichText.TextSpan).init(arena);
+                const span: vxfw.RichText.TextSpan = .{ .text = item.item };
+                try spans.append(span);
+                try self.filtered.append(.{ .text = spans.items });
             }
         } else {
             for (self.list.items) |line| {
-                var spans = std.ArrayList(vxfw.RichText.TextSpan).init(allocator);
+                var spans = std.ArrayList(vxfw.RichText.TextSpan).init(arena);
                 const span: vxfw.RichText.TextSpan = .{ .text = line.text };
                 try spans.append(span);
                 try self.filtered.append(.{ .text = spans.items });
