@@ -12,8 +12,41 @@ pub const known_folders_config: kf.KnownFolderConfig = .{
 };
 
 const Candidate = struct {
-    item: []const u8,
+    str: []const u8,
     rank: f64,
+};
+
+const HighlightSlicer = struct {
+    matches: []const usize,
+    highlight: bool,
+    str: []const u8,
+    index: usize = 0,
+
+    const Slice = struct {
+        str: []const u8,
+        highlight: bool,
+    };
+
+    pub fn init(str: []const u8, matches: []const usize) HighlightSlicer {
+        const highlight = std.mem.indexOfScalar(usize, matches, 0) != null;
+        return .{ .str = str, .matches = matches, .highlight = highlight };
+    }
+
+    pub fn next(slicer: *HighlightSlicer) ?Slice {
+        if (slicer.index >= slicer.str.len) return null;
+
+        const start_state = slicer.highlight;
+        var index: usize = slicer.index;
+        while (index < slicer.str.len) : (index += 1) {
+            const highlight = std.mem.indexOfScalar(usize, slicer.matches, index) != null;
+            if (start_state != highlight) break;
+        }
+
+        const slice = Slice{ .str = slicer.str[slicer.index..index], .highlight = slicer.highlight };
+        slicer.highlight = !slicer.highlight;
+        slicer.index = index;
+        return slice;
+    }
 };
 
 const ProjectPicker = struct {
@@ -145,13 +178,13 @@ const ProjectPicker = struct {
         if (a.rank > b.rank) return false;
 
         // then by length
-        if (a.item.len < b.item.len) return true;
-        if (a.item.len > b.item.len) return false;
+        if (a.str.len < b.str.len) return true;
+        if (a.str.len > b.str.len) return false;
 
         // then alphabetically
-        for (a.item, 0..) |c, i| {
-            if (c < b.item[i]) return true;
-            if (c > b.item[i]) return false;
+        for (a.str, 0..) |c, i| {
+            if (c < b.str[i]) return true;
+            if (c > b.str[i]) return false;
         }
         return false;
     }
@@ -187,17 +220,40 @@ const ProjectPicker = struct {
 
             for (self.list.items) |item| {
                 if (zf.rank(item.text, tokens.items, .{ .to_lower = !case_sensitive })) |r| {
-                    try fuzzy_ranked.append(arena, .{ .item = item.text, .rank = r });
+                    try fuzzy_ranked.append(arena, .{ .str = item.text, .rank = r });
                 }
             }
 
             std.sort.block(Candidate, fuzzy_ranked.items, {}, sort);
 
             for (fuzzy_ranked.items) |item| {
-                // FIXME: add more spans that highlight the matching text.
+                var matches_buf: [2048]usize = undefined;
+                const matches = zf.highlight(
+                    item.str,
+                    tokens.items,
+                    &matches_buf,
+                    .{ .to_lower = !case_sensitive },
+                );
+
                 var spans = std.ArrayList(vxfw.RichText.TextSpan).init(arena);
-                const span: vxfw.RichText.TextSpan = .{ .text = item.item };
-                try spans.append(span);
+
+                if (matches.len == 0) {
+                    const span: vxfw.RichText.TextSpan = .{ .text = item.str };
+                    try spans.append(span);
+                    try self.filtered.append(.{ .text = spans.items });
+                    continue;
+                }
+
+                var slicer: HighlightSlicer = .init(item.str, matches);
+
+                while (slicer.next()) |slice| {
+                    const span: vxfw.RichText.TextSpan = .{
+                        .text = slice.str,
+                        .style = .{ .reverse = slice.highlight },
+                    };
+                    try spans.append(span);
+                }
+
                 try self.filtered.append(.{ .text = spans.items });
             }
         } else {
