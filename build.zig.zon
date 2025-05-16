@@ -1,15 +1,16 @@
 .{
-    .name = "project-picker",
-    .version = "1.0.0",
-    .minimum_zig_version = "0.13.0",
+    .name = .project_picker,
+    .version = "2.0.0",
+    .fingerprint = 0xf2f6a1ca0d423a95,
+    .minimum_zig_version = "0.14.0",
     .dependencies = .{
         .vaxis = .{
-            .url = "https://github.com/rockorager/libvaxis/archive/refs/heads/main.zip",
-            .hash = "12201432ebbf5a7eb210ef1df546b32c9465d2d536d69891ba76d559c051047d251e",
+            .url = "git+https://github.com/rockorager/libvaxis.git#84d6cb381c0d628550fac3f6daa24c5faf7b2cd1",
+            .hash = "vaxis-0.1.0-BWNV_O8OCQBC4w-MnOGaKw9zFVFgTxf3XfcvgScUagEJ",
         },
-        .@"known-folders" = .{
-            .url = "git+https://github.com/ziglibs/known-folders.git#1cceeb70e77dec941a4178160ff6c8d05a74de6f",
-            .hash = "12205f5e7505c96573f6fc5144592ec38942fb0a326d692f9cddc0c7dd38f9028f29",
+        .known_folders = .{
+            .url = "git+https://github.com/ziglibs/known-folders.git#aa24df42183ad415d10bc0a33e6238c437fc0f59",
+            .hash = "known_folders-0.0.0-Fy-PJtLDAADGDOwYwMkVydMSTp_aN-nfjCZw6qPQ2ECL",
         },
     },
     .paths = .{

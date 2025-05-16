@@ -4,7 +4,7 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const known_folders_dep = b.dependency("known-folders", .{
+    const known_folders_dep = b.dependency("known_folders", .{
         .target = target,
         .optimize = optimize,
     });
